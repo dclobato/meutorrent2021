@@ -1,0 +1,138 @@
+{
+  "FilaDeEntrada": "br_edu_ifsp_ctd_dclobato_entrada",
+  "BucketEntrada": "br.edu.ifsp.ctd.dclobato.entrada",
+  "RegiaoBucketEntrada": "sa-east-1",
+  "TotalDeBuckets": 7,
+  "NumeroDeReplicas": 3,
+  "Buckets": [
+    {
+      "nome": "br.edu.ifsp.ctd.sd.storage0",
+      "regiao": "sa-east-1",
+      "friendly_name": "Repositorio 0 em Sao Paulo"
+    },
+    {
+      "nome": "br.edu.ifsp.ctd.sd.storage1",
+      "regiao": "sa-east-1",
+      "friendly_name": "Repositorio 1 em Sao Paulo"
+    },
+    {
+      "nome": "br.edu.ifsp.ctd.sd.storage2",
+      "regiao": "us-west-1",
+      "friendly_name": "Repositorio 2 na Carolina do Norte"
+    },
+    {
+      "nome": "br.edu.ifsp.ctd.sd.storage3",
+      "regiao": "ap-southeast-1",
+      "friendly_name": "Repositorio 3 em Cingapura"
+    },
+    {
+      "nome": "br.edu.ifsp.ctd.sd.storage4",
+      "regiao": "us-west-1",
+      "friendly_name": "Repositorio 4 na California"
+    },
+    {
+      "nome": "br.edu.ifsp.ctd.sd.storage5",
+      "regiao": "us-west-1",
+      "friendly_name": "Repositorio 5 no Oregon"
+    },
+    {
+      "nome": "br.edu.ifsp.ctd.sd.storage6",
+      "regiao": "eu-west-1",
+      "friendly_name": "Repositorio 6 na Irlanda"
+    }
+  ],
+  "Documentos" : {
+    "metadados":{
+      "TableName": "metadados",
+      "BillingMode": "PAY_PER_REQUEST",
+      "KeySchema":[
+        {
+          "AttributeName": "hash_arquivo",
+          "KeyType": "HASH"
+        }
+      ],
+      "AttributeDefinitions" : [
+        {
+          "AttributeName": "hash_arquivo",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "nome_arquivo",
+          "AttributeType": "S"
+        }
+      ],
+      "GlobalSecondaryIndex": [
+        {
+          "IndexName": "nomedoarquivo",
+          "KeySchema" : [
+            {
+              "AttributeName": "nome_arquivo",
+              "KeyType": "HASH"
+            },
+            {
+              "AttributeName": "hash_arquivo",
+              "KeyType": "RANGE"
+            }
+          ],
+          "Projection": {
+            "ProjectionType": "ALL"
+          }
+        }
+      ]
+    },
+    "distribuicao":{
+      "TableName": "distribuicao",
+      "BillingMode": "PAY_PER_REQUEST",
+      "KeySchema": [
+        {
+          "AttributeName": "uniqueKey",
+          "KeyType": "HASH"
+        }
+      ],
+      "AttributeDefinitions": [
+        {
+          "AttributeName": "uniqueKey",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "hash_arquivo",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "numero_chunk",
+          "AttributeType": "N"
+        }
+      ],
+      "GlobalSecondaryIndex": [
+        {
+          "IndexName": "chunk",
+          "KeySchema" : [
+            {
+              "AttributeName": "hash_arquivo",
+              "KeyType": "HASH"
+            },
+            {
+              "AttributeName": "numero_chunk",
+              "KeyType": "RANGE"
+            }
+          ],
+          "Projection": {
+            "ProjectionType": "ALL"
+          }
+        },
+        {
+          "IndexName": "todososchunks",
+          "KeySchema" : [
+            {
+              "AttributeName": "hash_arquivo",
+              "KeyType": "HASH"
+            }
+          ],
+          "Projection": {
+            "ProjectionType": "ALL"
+          }
+        }
+      ]
+    }
+  }
+}

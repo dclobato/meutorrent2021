@@ -1,0 +1,13 @@
+{
+  "chunksize": 500000,
+  "nome_arquivo": "teste.pdf",
+  "tamanho": 1863122,
+  "total_chunks": 4,
+  "hash_chunks": [
+    "e77d4de775e5398a5eea2a5fee1f91de1b1d09f6",
+    "aa76a678608a097b86372beb22bd5aff50328ed2",
+    "4f6851b3f8ea93c8bcc42c71542a389e226fc45d",
+    "e27c7e388ff4f64013c2b5c741576c55e3d861e0"
+  ],
+  "hash_arquivo": "8db657ae65ade88b01b63a47a3d9a5e52b334dbe"
+}
