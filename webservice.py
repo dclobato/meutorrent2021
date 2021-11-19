@@ -6,14 +6,47 @@ __author__ = 'danie'
 __version__ = '2021.11.1'
 """
 import json
+import random
 
 import boto3
 import botocore
 from dynamodb_json import json_util as dynamodb_json
 from boto3.dynamodb.conditions import Key
 from flask import Flask
+from flask import render_template
 from werkzeug.exceptions import abort
 from werkzeug.routing import BaseConverter
+
+def gera_links(registro, resposta):
+    numlinks = CONFIG["NumeroDeLinks"]
+    timeout = CONFIG["TimeOut"]
+
+    if len(registro["localizacacao_partes"]) == 0:
+        resposta["status"] = 404
+    elif len(registro["localizacacao_partes"]) < numlinks:
+        numlinks = len(registro["localizacacao_partes"])
+        resposta["status"] = 206
+    else:
+        resposta["status"] = 200
+
+    resposta["numlinks"] = numlinks
+    resposta["hash_arquivo"] = registro["hash_arquivo"]
+    resposta["hash_chunk"] = registro["hash_chunk"]
+    buckets = random.sample(registro["localizacacao_partes"], numlinks)
+    resposta["urls"] = list()
+
+    s3 = boto3.client('s3',
+                  aws_access_key_id = propriedades['AccessKey'],
+                  aws_secret_access_key = propriedades['SecretAccessKey'])
+    for opcao in buckets:
+        url = s3.generate_presigned_url("get_object",
+                                        Params = {"Bucket": opcao["nome"],
+                                                  "Key": registro["hash_arquivo"]+"."+registro["hash_chunk"]+".part"},
+                                        ExpiresIn = timeout,
+                                        HttpMethod = "GET")
+        partes = url.split("/")
+        url = "http://" + partes[3] + "." + partes[2] + "/" + "/".join(partes[4:])
+        resposta["urls"].append(url)
 
 def conectar_ao_dynamo(config: dict,
                        configuracao: dict):
@@ -53,11 +86,54 @@ with open("secrets.json", 'r') as fp:
 with open("config.json", 'r') as fp:
     CONFIG = json.load(fp)
 
-
-@app.route("/describe/<regex('[a-f\d]{40}'):arquivo>")
-
-
+@app.route("/")
 @app.route("/list")
+def filelist():
+    tbl_metadados = conectar_ao_dynamo(propriedades, CONFIG["Documentos"]["metadados"])
+    if tbl_metadados is None:
+        abort(500)
+
+    arquivos = tbl_metadados.scan()
+    if arquivos["Count"] == 0:
+        abort(404)
+
+    dados = arquivos["Items"]
+    while "LastEvaluatedKey" in arquivos:
+        arquivos = tbl_metadados.scan(ExclusiveStartKey = arquivos["LastEvaluatedKey"])
+        dados.extend(arquivos["Items"])
+
+    dados = dynamodb_json.loads(dados)
+    resposta = dict()
+    lista_de_arquivos = list()
+    for arquivo in dados:
+        entrada = dict()
+        entrada["nome_arquivo"] = arquivo["nome_arquivo"]
+        entrada["tamanho"] = arquivo["tamanho"]
+        entrada["hash_arquivo"] = arquivo["hash_arquivo"]
+        lista_de_arquivos.append(entrada)
+
+    return render_template("lista_de_arquivos.html", rows = lista_de_arquivos, num_arquivos = len(dados))
+
+@app.route("/get/<regex('[a-f\d]{40}'):arquivo>")
+def get_metados(arquivo):
+    tbl_metadados = conectar_ao_dynamo(propriedades, CONFIG["Documentos"]["metadados"])
+    if tbl_metadados is None:
+        abort(500)
+
+    key = dict()
+    key["hash_arquivo"] = arquivo
+    item = tbl_metadados.get_item(Key = key)
+
+    if item is None:
+        abort(404)
+
+    metadados = dynamodb_json.loads(item.get("Item"))
+    header = dict()
+    header["Content-Disposition"] = f"attachment;filename={metadados['nome_arquivo']}.meutorrent"
+
+    return app.response_class(response = json.dumps(metadados),
+                              mimetype = "application/json",
+                              headers = header)
 
 
 @app.route("/get/chunk/<regex('[a-f\d]{40}'):arquivo>/<int:chunk>")
@@ -79,14 +155,13 @@ def get_distribuicao_chunks(arquivo, chunk):
         abort(500)
 
     lista_de_pedacos = dynamodb_json.loads(documento.get("Items")[0])
+    resposta = dict()
 
-    return app.response_class(response = json.dumps(lista_de_pedacos, indent = 2),
-                              status = 200,
+    gera_links(lista_de_pedacos, resposta)
+
+    return app.response_class(response = json.dumps(resposta, indent = 2),
+                              status = resposta["status"],
                               mimetype = "application/json")
-
-@app.route("/")
-def hello():
-    return "Oi"
 
 @app.errorhandler(500)
 def erro(erro):
@@ -100,3 +175,4 @@ if __name__ == "__main__":
     app.run(host = "0.0.0.0",
             port = 9876,
             use_reloader = True)
+

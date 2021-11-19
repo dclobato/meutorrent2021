@@ -4,6 +4,8 @@
   "RegiaoBucketEntrada": "sa-east-1",
   "TotalDeBuckets": 7,
   "NumeroDeReplicas": 3,
+  "NumeroDeLinks": 2,
+  "TimeOut": 300,
   "Buckets": [
     {
       "nome": "br.edu.ifsp.ctd.sd.storage0",

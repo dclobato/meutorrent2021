@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lista de Arquivos</title>
+</head>
+<body>
+<h1>Lista de arquivos disponíveis</h1>
+
+<h4>Total de arquivos: {{ num_arquivos }}</h4>
+<table>
+    <tr>
+        <th>Arquivo</th>
+        <th>Tamanho</th>
+    </tr>
+{% for arquivo in rows %}
+    <tr>
+        <td><a href="/get/{{ arquivo['hash_arquivo'] }}">{{ arquivo["nome_arquivo"] }}</a></td>
+        <td>{{ arquivo["tamanho"] }} bytes</td>
+    </tr>
+{% endfor %}
+</table>
+</body>
+</html>
