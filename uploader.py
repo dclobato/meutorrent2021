@@ -56,6 +56,17 @@ with open(arquivo_raw, 'rb') as fd_input:
         metadados['hash_chunks'].append(hash_chunk.hexdigest())
     metadados['hash_arquivo'] = hash_geral.hexdigest()
 
+metadados["rastreadores"] = list()
+rastreador = dict()
+rastreador["endereco"] = "instancia1.lobato.org"
+rastreador["porta"] = 9876
+metadados["rastreadores"].append(rastreador)
+rastreador = dict()
+rastreador["endereco"] = "10.0.1.100"
+rastreador["porta"] = 9876
+metadados["rastreadores"].append(rastreador)
+
+
 arquivo_saida = os.path.join(drive, caminho, arquivo + ".meutorrent")
 with open(arquivo_saida, 'w') as fd_output:
     json.dump(metadados, fd_output, indent = 2)

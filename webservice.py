@@ -17,6 +17,7 @@ from flask import render_template
 from werkzeug.exceptions import abort
 from werkzeug.routing import BaseConverter
 
+
 def gera_links(registro, resposta):
     numlinks = CONFIG["NumeroDeLinks"]
     timeout = CONFIG["TimeOut"]
@@ -48,6 +49,7 @@ def gera_links(registro, resposta):
         url = "http://" + partes[3] + "." + partes[2] + "/" + "/".join(partes[4:])
         resposta["urls"].append(url)
 
+
 def conectar_ao_dynamo(config: dict,
                        configuracao: dict):
     dynamo_db = boto3.resource('dynamodb',
@@ -71,10 +73,12 @@ def conectar_ao_dynamo(config: dict,
         tabela = dynamo_db.Table(configuracao["TableName"])
     return tabela
 
+
 class RegexConverter(BaseConverter):
     def __int__(self, url_map, *items):
         super(RegexConverter, self).__init__(url_map)
         self.regex = items[0]
+
 
 app = Flask(__name__)
 app.url_map.converters['regex'] = RegexConverter
@@ -85,6 +89,7 @@ with open("secrets.json", 'r') as fp:
 
 with open("config.json", 'r') as fp:
     CONFIG = json.load(fp)
+
 
 @app.route("/")
 @app.route("/list")
@@ -113,6 +118,7 @@ def filelist():
         lista_de_arquivos.append(entrada)
 
     return render_template("lista_de_arquivos.html", rows = lista_de_arquivos, num_arquivos = len(dados))
+
 
 @app.route("/get/<regex('[a-f\d]{40}'):arquivo>")
 def get_metados(arquivo):
@@ -163,13 +169,16 @@ def get_distribuicao_chunks(arquivo, chunk):
                               status = resposta["status"],
                               mimetype = "application/json")
 
+
 @app.errorhandler(500)
 def erro(erro):
     return app.response_class(status = 500)
 
+
 @app.errorhandler(404)
 def erro404(erro):
     return app.response_class(status = 404)
+
 
 if __name__ == "__main__":
     app.run(host = "0.0.0.0",
