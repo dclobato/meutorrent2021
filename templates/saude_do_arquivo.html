@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Saude do arquivo</title>
+</head>
+<body>
+<h1>Saude do arquivo {{ arquivo }} </h1>
+
+<table border="1">
+    <tr>
+        <th>Bucket</th>
+        {% for parte in range(num_partes) %}<th>{{ loop.index0 }}</th>{% endfor %}
+    </tr>
+    {% for bucket in rows %}
+    <tr>
+    <td>{{ bucket["bucket"] }}</td>
+        {% for parte in range(num_partes) %}<td>{% if bucket["partes"][parte] %}X{% else %}&nbsp;{% endif %}</td>{% endfor %}
+    </tr>
+    {% endfor %}
+</table>
+</body>
+</html>

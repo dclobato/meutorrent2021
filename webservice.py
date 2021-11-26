@@ -142,6 +142,49 @@ def get_metados(arquivo):
                               headers = header)
 
 
+@app.route("/health/<regex('[a-f\d]{40}'):arquivo>")
+def mostra_saude_arquivos(arquivo):
+    print(f"Vamos verificar a saude do arquivo {arquivo}")
+
+    tbl_pedacos = conectar_ao_dynamo(propriedades, CONFIG["Documentos"]["distribuicao"])
+    if tbl_pedacos is None:
+        abort(500)
+
+    documento = tbl_pedacos.query(IndexName = "todososchunks",
+                                  Select = "ALL_PROJECTED_ATTRIBUTES",
+                                  KeyConditionExpression = Key("hash_arquivo").eq(arquivo))
+
+    partes = documento["Items"]
+    while "LastEvaluatedKey" in documento:
+        documento = tbl_pedacos.query(IndexName = "todososchunks",
+                                      Select = "ALL_PROJECTED_ATTRIBUTES",
+                                      KeyConditionExpression = Key("hash_arquivo").eq(arquivo),
+                                      ExclusiveStartKey = documento["LastEvaluatedKey"])
+        partes.extend(documento["Items"])
+    partes = sorted(dynamodb_json.loads(partes), key=lambda d: d["numero_chunk"])
+
+    lista_buckets = CONFIG["Buckets"]
+
+    matriz_de_situacao = list()
+    for bucket in lista_buckets:
+        linha = dict()
+        linha["bucket"] = bucket["friendly_name"]
+        linha["partes"] = list()
+        for chunk in partes:
+            if len(list(filter(lambda d: d["nome"] == bucket["nome"], chunk["localizacacao_partes"]))) == 0: # nao esta
+                linha["partes"].append(False)
+            else:
+                ## tentar mudar a logica para s3client.head_object e marcar True apenas se
+                ## codigo 200.  Ver ideia no fatiador, linhas 45:68
+                linha["partes"].append(True)
+        matriz_de_situacao.append(linha)
+
+    return render_template("saude_do_arquivo.html",
+                           rows = matriz_de_situacao,
+                           num_partes = len(partes),
+                           hash_arquivo = arquivo)
+
+
 @app.route("/get/chunk/<regex('[a-f\d]{40}'):arquivo>/<int:chunk>")
 def get_distribuicao_chunks(arquivo, chunk):
     print(f"Usuario pediu o chunk {chunk} do arquivo {arquivo}")

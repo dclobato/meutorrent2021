@@ -12,11 +12,13 @@
     <tr>
         <th>Arquivo</th>
         <th>Tamanho</th>
+        <th>Saude</th>
     </tr>
 {% for arquivo in rows %}
     <tr>
         <td><a href="/get/{{ arquivo['hash_arquivo'] }}">{{ arquivo["nome_arquivo"] }}</a></td>
         <td>{{ arquivo["tamanho"] }} bytes</td>
+        <td><a href="/health/{{ arquivo['hash_arquivo'] }}">?</a></td>
     </tr>
 {% endfor %}
 </table>
