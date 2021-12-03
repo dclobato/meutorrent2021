@@ -18,6 +18,24 @@ from werkzeug.exceptions import abort
 from werkzeug.routing import BaseConverter
 
 
+def put_item(tabela,
+             documento: dict,
+             condition_expression: str = None):
+    try:
+        registro = dynamodb_json.loads(documento)
+        if condition_expression is None:
+            tabela.put_item(Item = registro)
+        else:
+            tabela.put_item(Item = registro,
+                            ConditionExpression = condition_expression)
+    except botocore.exceptions.ClientError as pe:
+        if pe.response.get("Error").get("Code") == "ConditionalCheckFailedException":
+            # Registro duplicado
+            return False
+    else:
+        return True
+
+
 def gera_links(registro, resposta):
     numlinks = CONFIG["NumeroDeLinks"]
     timeout = CONFIG["TimeOut"]
@@ -277,16 +295,19 @@ def repara_arquivo(arquivo):
                     erro = True
                     pass
                 else:
-                    lista_de_destinos.append(destino)
+                    lista_dos_locais_que_tem_o_chunk.append(destino)
                     break
                 if erro:
                     continue
         print(f"Parte {chunk['numero_chunk']} reparada!")
-        localizacao_final = list()
-        localizacao_final.append(lista_dos_locais_que_tem_o_chunk)
-        localizacao_final.append(lista_de_destinos)
-        chunk["localizacacao_partes"] = localizacao_final
-        ## Precisa atualizar o documento na tabela "distribuicao" com os novos locais
+        chunk["localizacacao_partes"] = lista_dos_locais_que_tem_o_chunk
+        chave = {"uniqueKey": arquivo+chunk["hash_chunk"]}
+        tbl_pedacos.delete_item(Key = dynamodb_json.loads(chave))
+        if put_item(tbl_pedacos, chunk, condition_expression = "attribute_not_exists(uniqueKey)"):
+            print(f"Tabela de pedacos atualizada para o chunk {chunk['numero_chunk']}")
+        else:
+            print(f"Problemas para registrar a distribuicao do chunk {chunk['numero_chunk']}")
+
 
     return filelist()
 

@@ -73,11 +73,9 @@ if __name__ == "__main__":
 
     print(f"Fazendo o download do arquivo {metadados['nome_arquivo']}")
 
-    #urlBase = f"http://instancia1.lobato.org:9876/get/chunk/{metadados['hash_arquivo']}/"
-    #urlBase = f"http://10.0.1.100:9876/get/chunk/{metadados['hash_arquivo']}/"
-    urlBase = f"http://{metadados['rastreadores'][0]['endereco']}:"\
-              "{metadados['rastreadores'][0]['porta']}"\
-              "/get/chunk/{metadados['hash_arquivo']}/"
+    urlBase = f"http://{metadados['rastreadores'][1]['endereco']}:"\
+              f"{metadados['rastreadores'][1]['porta']}"\
+              f"/get/chunk/{metadados['hash_arquivo']}/"
 
     err_conexao = 0
     err_timeout = 0

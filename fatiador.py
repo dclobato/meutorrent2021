@@ -218,7 +218,7 @@ while "Messages" in mensagens:
             documento["localizacacao_partes"].append(local)
         # GUARDAR NO DYNAMO PARA ONDE FOI ESTE PEDACO
         # Colocar esse documento na tabela de distribuicao
-        print(json.dumps(documento, indent = 2))
+        #print(json.dumps(documento, indent = 2))
         if not put_item(tbl_pedacos, documento, condition_expression = "attribute_not_exists(uniqueKey)"):
             print(f"Problemas para registrar a distribuicao do chunk {chunk}")
             continue
