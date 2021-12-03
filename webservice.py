@@ -166,23 +166,129 @@ def mostra_saude_arquivos(arquivo):
     lista_buckets = CONFIG["Buckets"]
 
     matriz_de_situacao = list()
+    s3client = boto3.client('s3',
+                  aws_access_key_id = propriedades['AccessKey'],
+                  aws_secret_access_key = propriedades['SecretAccessKey'])
     for bucket in lista_buckets:
         linha = dict()
         linha["bucket"] = bucket["friendly_name"]
         linha["partes"] = list()
         for chunk in partes:
             if len(list(filter(lambda d: d["nome"] == bucket["nome"], chunk["localizacacao_partes"]))) == 0: # nao esta
-                linha["partes"].append(False)
+                linha["partes"].append(1)
             else:
-                ## tentar mudar a logica para s3client.head_object e marcar True apenas se
-                ## codigo 200.  Ver ideia no fatiador, linhas 45:68
-                linha["partes"].append(True)
+                remote_key = arquivo + "." + chunk["hash_chunk"] + ".part"
+                try:
+                    resposta = s3client.head_object(Bucket = bucket["nome"], Key = remote_key)
+                except botocore.exceptions.ClientError as e:
+                    if e.response.get("Error").get("Code") == "404":  # Eh isso que eu quero!!!
+                        linha["partes"].append(2)
+                else:
+                    if resposta.get("ResponseMetadata").get("HTTPStatusCode") == 200:
+                        linha["partes"].append(3)
+                    else:
+                        linha["partes"].append(2)
+
         matriz_de_situacao.append(linha)
 
     return render_template("saude_do_arquivo.html",
                            rows = matriz_de_situacao,
                            num_partes = len(partes),
-                           hash_arquivo = arquivo)
+                           arquivo = arquivo)
+
+
+@app.route("/repair/<regex('[a-f\d]{40}'):arquivo>")
+def repara_arquivo(arquivo):
+    print(f"Vamos verificar a saude do arquivo {arquivo}")
+
+    tbl_pedacos = conectar_ao_dynamo(propriedades, CONFIG["Documentos"]["distribuicao"])
+    if tbl_pedacos is None:
+        abort(500)
+
+    documento = tbl_pedacos.query(IndexName = "todososchunks",
+                                  Select = "ALL_PROJECTED_ATTRIBUTES",
+                                  KeyConditionExpression = Key("hash_arquivo").eq(arquivo))
+
+    partes = documento["Items"]
+    while "LastEvaluatedKey" in documento:
+        documento = tbl_pedacos.query(IndexName = "todososchunks",
+                                      Select = "ALL_PROJECTED_ATTRIBUTES",
+                                      KeyConditionExpression = Key("hash_arquivo").eq(arquivo),
+                                      ExclusiveStartKey = documento["LastEvaluatedKey"])
+        partes.extend(documento["Items"])
+    partes = sorted(dynamodb_json.loads(partes), key=lambda d: d["numero_chunk"])
+
+    lista_buckets = CONFIG["Buckets"]
+
+    s3client = boto3.client('s3',
+                  aws_access_key_id = propriedades['AccessKey'],
+                  aws_secret_access_key = propriedades['SecretAccessKey'])
+
+    for chunk in partes:
+        remote_key = arquivo + "." + chunk["hash_chunk"] + ".part"
+        lista_dos_locais_que_tem_o_chunk = list()
+        for local in chunk["localizacacao_partes"]:
+            # Verificando se a parte esta no local
+            erro = False
+            try:
+                resposta = s3client.head_object(Bucket = local["nome"], Key = remote_key)
+            except botocore.exceptions.ClientError as e:
+                if e.response.get("Error").get("Code") == "404":
+                    erro = True
+                    pass
+            else:
+                if resposta.get("ResponseMetadata").get("HTTPStatusCode") == 200:
+                    lista_dos_locais_que_tem_o_chunk.append(local)
+                else:
+                    continue
+            if erro:
+                continue
+        if len(lista_dos_locais_que_tem_o_chunk) == CONFIG["NumeroDeReplicas"]:
+            print(f"A parte {chunk['numero_chunk']} esta ok...")
+            continue
+
+        print(f"A parte {chunk['numero_chunk']} precisa ser reparada")
+        if len(lista_dos_locais_que_tem_o_chunk) == 0:
+            print(f"A parte {chunk['numero_chunk']} nao pode ser recuperada pq nao existe copia dela em lugar algum")
+            continue
+
+        fonte = random.choice(lista_dos_locais_que_tem_o_chunk)
+        copias_a_fazer = CONFIG['NumeroDeReplicas'] - len(lista_dos_locais_que_tem_o_chunk)
+        source = {
+            "Bucket": fonte["nome"],
+            "Key": remote_key
+        }
+        print(f"Precisamos gerar mais {copias_a_fazer} replicas")
+
+        lista_de_destinos = list()
+        for copia in range(copias_a_fazer):
+            while True:
+                destino = random.choice(CONFIG["Buckets"])
+                if fonte == destino:
+                    continue
+                if destino in lista_dos_locais_que_tem_o_chunk:
+                    continue
+                erro = False
+                print(f"Fazendo a copia {copia + 1} para {destino['friendly_name']}")
+                try:
+                    resposta = s3client.copy(source, destino["nome"], remote_key)
+                except botocore.exceptions.ClientError as e2:
+                    print(f"Erro na copia para {destino['friendly_name']}. Tentando outro...")
+                    erro = True
+                    pass
+                else:
+                    lista_de_destinos.append(destino)
+                    break
+                if erro:
+                    continue
+        print(f"Parte {chunk['numero_chunk']} reparada!")
+        localizacao_final = list()
+        localizacao_final.append(lista_dos_locais_que_tem_o_chunk)
+        localizacao_final.append(lista_de_destinos)
+        chunk["localizacacao_partes"] = localizacao_final
+        ## Precisa atualizar o documento na tabela "distribuicao" com os novos locais
+
+    return filelist()
 
 
 @app.route("/get/chunk/<regex('[a-f\d]{40}'):arquivo>/<int:chunk>")
